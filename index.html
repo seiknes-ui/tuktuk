@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Tuktuk Kjøreskole</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,7 +36,8 @@
   .chip { font-family:var(--font); font-size:1.15rem; color:var(--ink); background:var(--btn-low); border:2px solid var(--btn-edge);
           border-radius:8px; padding:2px 10px; cursor:pointer; }
 
-  #pad { flex:1; min-height:0; display:flex; }
+  #pad { flex:1; min-height:0; max-height:220px; display:flex; }
+  #app { justify-content:center; }
   #pad > div { flex:1; min-height:0; }
   .pb { font-family:var(--font); color:var(--ink); background:var(--btn); border:3px solid var(--btn-edge); border-bottom-width:7px;
         border-radius:14px; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
@@ -551,8 +554,8 @@ const isStory = () => scene === 'living' || scene === 'card' || scene === 'stree
 function sizeStage() {
   const cs = getComputedStyle(appEl), sw = stage.clientWidth;
   const free = appEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - barEl.offsetHeight - 20;
-  const padMin = scene === 'drive' ? 190 : isStory() || scene === 'title' ? 72 : 0;
-  const h = clamp(free - padMin, sw / 1.6, sw * (isStory() ? 1.35 : 1.15));
+  const padMin = scene === 'drive' ? 180 : isStory() || scene === 'title' ? 72 : 0;
+  const h = clamp(free - padMin, sw / 1.6, sw * (isStory() ? 1.4 : 1.3));
   stage.style.aspectRatio = 'auto'; stage.style.height = Math.round(h) + 'px';
   camVis = W * sw / Math.max(sw, h * 1.6);
 }
