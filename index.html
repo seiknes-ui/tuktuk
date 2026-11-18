@@ -21,7 +21,6 @@
   #stage { position:relative; width:100%; max-width:100%; aspect-ratio:16/10; flex:none; background:#000;
            outline:3px solid var(--btn-edge); outline-offset:0; }
   #stage { overflow:hidden; }
-  #stage.tall { aspect-ratio:1/1; }
   #cam { position:absolute; top:0; left:0; height:100%; width:100%; will-change:transform; }
   canvas { position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; image-rendering:crisp-edges; }
   #ov { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
@@ -544,12 +543,21 @@ function spos(who) {
   if (scene === 'street') return (IMG['bg-gate.jpg'] ? { arve: [118, 104], andre: [170, 104], somchai: [Math.max(somX, 64), 104] } : { arve: [124, 126], andre: [162, 120], somchai: [somX, 126] })[who];
   return { arve: [112, 126], somchai: [206, 110] }[who] || [160, 100];
 }
-// camera: in story scenes the screen is square and shows a zoomed part of the 320x200 scene, panning to whoever talks
+// camera: on a tall phone screen the game screen grows to fill the space above the buttons and shows a zoomed
+// part of the 320x200 scene. Story scenes pan to whoever talks; the drive stays centred on the road.
 let camX = W / 2, camTarget = W / 2, camVis = W;
-const camEl = document.getElementById('cam');
-const isTall = () => scene === 'living' || scene === 'card' || scene === 'street' || scene === 'howto';
+const camEl = document.getElementById('cam'), appEl = document.getElementById('app'), barEl = document.getElementById('bar');
+const isStory = () => scene === 'living' || scene === 'card' || scene === 'street';
+function sizeStage() {
+  const cs = getComputedStyle(appEl), sw = stage.clientWidth;
+  const free = appEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - barEl.offsetHeight - 20;
+  const padMin = scene === 'drive' ? 190 : isStory() || scene === 'title' ? 72 : 0;
+  const h = clamp(free - padMin, sw / 1.6, sw * (isStory() ? 1.35 : 1.15));
+  stage.style.aspectRatio = 'auto'; stage.style.height = Math.round(h) + 'px';
+  camVis = W * sw / Math.max(sw, h * 1.6);
+}
 function updateCam() {
-  stage.classList.toggle('tall', isTall());
+  sizeStage();
   const sw = stage.clientWidth, sh = stage.clientHeight, cw = Math.max(sw, sh * 1.6);
   camVis = W * sw / cw;
   camX += (camTarget - camX) * Math.min(1, dt * 3);
@@ -563,17 +571,11 @@ function say(who, text, dur = 2.2, delay = 0) {
   const show = () => {
     const b = bub(who), p = spos(who);
     b.el.textContent = text;
-    if (isTall()) {
-      stage.classList.add('tall');
-      camVis = W * stage.clientWidth / Math.max(stage.clientWidth, stage.clientHeight * 1.6);
-      if (script) focusOn(who === 'alle' ? W / 2 : p[0]);
-      const c = clamp(camTarget, camVis / 2, W - camVis / 2), l = c - camVis / 2;
-      b.el.style.maxWidth = (camVis * .8 / W * 100) + '%';
-      b.el.style.left = (clamp(p[0], l + camVis * .4, l + camVis * .6) / W * 100) + '%';
-    } else {
-      b.el.style.maxWidth = '';
-      b.el.style.left = clamp(p[0] / W * 100, 31, 69) + '%';
-    }
+    sizeStage();
+    if (script && isStory()) focusOn(who === 'alle' ? W / 2 : p[0]);
+    const c = clamp(camTarget, camVis / 2, W - camVis / 2), l = c - camVis / 2;
+    b.el.style.maxWidth = (camVis * .66 / W * 100) + '%';
+    b.el.style.left = (clamp(p[0], l + camVis * .34, l + camVis * .66) / W * 100) + '%';
     b.el.style.top = (p[1] / H * 100) + '%';
     b.el.style.display = 'block';
     clearTimeout(b.t);
@@ -748,8 +750,8 @@ function drawLiving() { // coffee evening in the workshop hall at Sauda VGS
   }
   if (phoneOn) { // phone close-up, on the edge of the view away from whoever the camera is on
     g.save(); g.translate(Math.round(camX < W / 2 ? camX + camVis / 2 - 62 : camX - camVis / 2 + 4) - 249, 0);
-    rc(g, 246, 10, 64, 100, '#0d0d0d'); rc(g, 247, 9, 62, 102, '#0d0d0d');
-    rc(g, 250, 16, 56, 88, '#f4f1ea'); rc(g, 250, 16, 56, 11, '#1d4fa0');
+    rc(g, 244, 10, 68, 100, '#0d0d0d'); rc(g, 245, 9, 66, 102, '#0d0d0d');
+    rc(g, 248, 16, 60, 88, '#f4f1ea'); rc(g, 248, 16, 60, 11, '#1d4fa0');
     txt(g, 'LOTTO', 278 - tw('LOTTO') / 2, 19, '#fff');
     txt(g, 'LØRDAG', 278 - tw('LØRDAG') / 2, 31, '#555');
     for (let i = 0; i < balls; i++) ball(g, i < 4 ? 256 + i * 11 : 261 + (i - 4) * 11, i < 4 ? 40 : 52, LOTTO[i]);
@@ -930,7 +932,7 @@ function startTrip() {
   D = { dest, pos: 0, speed: 0, x: 0, time: 0, score: 100, steer: 0, steerT: 0, hold: 0, wv: 0, calm: .75, target: 3800, q: [], lastCmd: -9, nag: 0,
         talkT: 8, crash: 0, arm: null, armT: 0, brake: 0, offT: 0, offs: 0, hits: 0, wasOff: false, offLine: -9, lastPraise: -9, prevSeg: 0, done: false };
   for (const e of events) e.done = false;
-  scene = 'drive'; hideAll();
+  scene = 'drive'; hideAll(); focusOn(W / 2); camX = W / 2;
   say('arve', tripNo === 0 ? 'Rolig ut fra fortauskanten…' : 'Samme vei tilbake. Du klarer det.', 2.5, .4);
 }
 function cmd(k) {
@@ -1119,20 +1121,21 @@ function renderDrive() {
     if (D.arm === 'H') { rc(g, px + 40, py + 14, 3, 14, sh); rc(g, px + 39, py + 10, 5, 4, sk); }
   }
   if (D.crash > 0) { g.fillStyle = `rgba(255,255,255,${clamp(D.crash - 1.8, 0, .4)})`; g.fillRect(0, 0, W, H); }
-  // HUD
+  // HUD, kept inside the part of the scene the camera shows
+  const hl = Math.round(camX - camVis / 2), hw = Math.round(camVis), hr = hl + hw;
   g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, W, 11);
   const km = Math.max(0, Math.round((1 - (D.pos + PZ) / (finishSeg * SEG)) * 80));
-  txt(g, D.dest + ' ' + km + ' KM', 4, 3, '#fff');
+  txt(g, D.dest + ' ' + km + ' KM', hl + 3, 3, '#fff');
   const mm = Math.floor(D.time / 60), ss = String(Math.floor(D.time % 60)).padStart(2, '0');
-  txt(g, mm + ':' + ss, 160 - tw(mm + ':' + ss) / 2, 3, '#ffd166');
-  const sc = 'KARAKTER ' + Math.round(D.score); txt(g, sc, W - 4 - tw(sc), 3, '#fff');
+  const sc = 'KAR ' + Math.round(D.score); txt(g, sc, hr - 3 - tw(sc), 3, '#fff');
+  txt(g, mm + ':' + ss, hr - 3 - tw(sc) - 8 - tw(mm + ':' + ss), 3, '#ffd166');
   const prog = clamp((D.pos + PZ) / (finishSeg * SEG), 0, 1);
-  rc(g, 0, 11, W, 2, 'rgba(0,0,0,.45)'); rc(g, 0, 11, W * prog, 2, '#ffd166');
-  g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(2, H - 14, 58, 12); g.fillRect(W - 46, H - 14, 44, 12);
-  txt(g, 'NERVER', 5, H - 12, '#fff');
+  rc(g, 0, 11, W, 2, 'rgba(0,0,0,.45)'); rc(g, hl, 11, hw * prog, 2, '#ffd166');
+  g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(hl + 2, H - 14, 58, 12); g.fillRect(hr - 46, H - 14, 44, 12);
+  txt(g, 'NERVER', hl + 5, H - 12, '#fff');
   const nerv = 1 - D.calm;
-  rc(g, 5, H - 6, 52, 2, '#333'); rc(g, 5, H - 6, 52 * nerv, 2, nerv > .6 ? '#ff3b3b' : nerv > .35 ? '#ffd166' : '#7df0c8');
-  const kmh = Math.round(sp * 60) + ' KM/T'; txt(g, kmh, W - 5 - tw(kmh), H - 10, '#fff');
+  rc(g, hl + 5, H - 6, 52, 2, '#333'); rc(g, hl + 5, H - 6, 52 * nerv, 2, nerv > .6 ? '#ff3b3b' : nerv > .35 ? '#ffd166' : '#7df0c8');
+  const kmh = Math.round(sp * 60) + ' KM/T'; txt(g, kmh, hr - 5 - tw(kmh), H - 10, '#fff');
 }
 
 // ---------------------------------------------------------------- audio
