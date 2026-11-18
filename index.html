@@ -81,6 +81,7 @@
     <span class="name">TUKTUK KJØRESKOLE</span>
     <span class="tools">
       <button class="chip" id="skipBtn" hidden>Hopp over</button>
+      <button class="chip" id="tiltBtn" hidden aria-label="Styr ved å vippe telefonen">Vipp: av</button>
       <button class="chip" id="muteBtn" aria-label="Lyd av eller på">Lyd: på</button>
     </span>
   </div>
@@ -114,6 +115,7 @@
       <li><span class="sw">★</span> Ros Somchai. Det roer nervene hans.</li>
     </ul>
     <p>Somchai reagerer litt sent. Maser du, blir han nervøs, og nervøse elever overstyrer. Hold tuk-tuken på veien helt fram. Turen tar omtrent tre minutter. Det finnes ingen pauseknapp.</p>
+    <p class="small">Vipp: slå på «Vipp» øverst og hold telefonen slik du vil ha den. Vipp til siden for venstre/høyre, fram for gass og bakover for rolig.</p>
     <p class="small">Tastatur: piltaster, mellomrom = ros, H = tut, M = lyd.</p>
     <button id="goBtn">KJØR!</button>
   </div>
@@ -833,6 +835,14 @@ const easeIn = (a, b, p) => a + (b - a) * Math.pow(p, 2), easeInOut = (a, b, p) 
 function addRoad(en, hold, lv, c) { for (let i = 0; i < en; i++) addSeg(easeIn(0, c, i / en)); for (let i = 0; i < hold; i++) addSeg(c); for (let i = 0; i < lv; i++) addSeg(easeInOut(c, 0, i / lv)); }
 const segAt = z => segs[((Math.floor(z / SEG) % N) + N) % N];
 function put(i, img, ww, off, extra) { segs[i].sprites.push(Object.assign({ img, ww: img.ww || ww, off }, extra || {})); }
+// solid hitboxes: a..b = part of the sprite width that is solid (0 = road side), d = depth along the road in segments
+const SOLID = { house: { a: 0, b: 1, d: 6 }, mart: { a: 0, b: 1, d: 8 }, temple: { a: .1, b: .9, d: 10 }, stilt: { a: .05, b: .95, d: 4 },
+  stall: { a: .1, b: .9, d: 2 }, pole: { a: .45, b: .55, d: .6 }, palm: { a: .42, b: .58, d: .6 }, spirit: { a: .3, b: .7, d: .6 } };
+function hitbox(sp) { // lateral span [lo, hi] in road units
+  const w = sp.ww / RW, h = sp.solid;
+  if (sp.center) return [sp.off - w / 2 + h.a * w, sp.off - w / 2 + h.b * w];
+  return sp.off < 0 ? [sp.off - h.b * w, sp.off - h.a * w] : [sp.off + h.a * w, sp.off + h.b * w];
+}
 
 function buildTrack(seed, dest) {
   const r = rng(seed); segs = [];
@@ -848,29 +858,29 @@ function buildTrack(seed, dest) {
   for (let i = 8; i < L + 25; i++) {
     const z = segs[i].zone, side = r() < .5 ? -1 : 1;
     if (z === 'city') {
-      if (i % 6 === 0) { put(i, rp(r, SH), 1500, -1.35 - r() * .2); put(i, rp(r, SH), 1500, 1.35 + r() * .2); }
-      if (i % 12 === 3) { put(i, POLE, 700, -1.15); put(i, POLE, 700, 1.15); }
-      if (r() < .035) put(i, rp(r, STALLS), 650, side * 1.22);
-      if (r() < .01) put(i, SPIRIT, 260, side * 1.3);
-      if (i % 170 === 50) put(i, MINIMART, 1900, side * 1.4, { tag: 'mart' });
+      if (i % 6 === 0) { put(i, rp(r, SH), 1500, -1.35 - r() * .2, { solid: SOLID.house }); put(i, rp(r, SH), 1500, 1.35 + r() * .2, { solid: SOLID.house }); }
+      if (i % 12 === 3) { put(i, POLE, 700, -1.15, { solid: SOLID.pole }); put(i, POLE, 700, 1.15, { solid: SOLID.pole }); }
+      if (r() < .035) put(i, rp(r, STALLS), 650, side * 1.22, { solid: SOLID.stall });
+      if (r() < .01) put(i, SPIRIT, 260, side * 1.3, { solid: SOLID.spirit });
+      if (i % 170 === 50) put(i, MINIMART, 1900, side * 1.4, { tag: 'mart', solid: SOLID.mart });
     } else if (z === 'suburb') {
-      if (i % 10 === 0 && r() < .6) put(i, rp(r, SH), 1500, side * (1.6 + r() * .7));
-      if (i % 12 === 3) put(i, POLE, 700, 1.15);
-      if (r() < .07) put(i, rp(r, PALMS), 750, side * (1.3 + r() * 1.3));
-      if (i % 230 === 100) put(i, MINIMART, 1900, side * 1.5, { tag: 'mart' });
-      if (r() < .012) put(i, rp(r, STALLS), 650, side * 1.25);
+      if (i % 10 === 0 && r() < .6) put(i, rp(r, SH), 1500, side * (1.6 + r() * .7), { solid: SOLID.house });
+      if (i % 12 === 3) put(i, POLE, 700, 1.15, { solid: SOLID.pole });
+      if (r() < .07) put(i, rp(r, PALMS), 750, side * (1.3 + r() * 1.3), { solid: SOLID.palm });
+      if (i % 230 === 100) put(i, MINIMART, 1900, side * 1.5, { tag: 'mart', solid: SOLID.mart });
+      if (r() < .012) put(i, rp(r, STALLS), 650, side * 1.25, { solid: SOLID.stall });
     } else {
-      if (r() < .12) put(i, rp(r, PALMS), 750, side * (1.3 + r() * 2.4));
-      if (r() < .015) put(i, STILT, 1400, side * (1.8 + r() * 1.4));
-      if (i % 14 === 3) put(i, POLE, 700, 1.15);
-      if (r() < .006) put(i, SPIRIT, 260, side * 1.4);
+      if (r() < .12) put(i, rp(r, PALMS), 750, side * (1.3 + r() * 2.4), { solid: SOLID.palm });
+      if (r() < .015) put(i, STILT, 1400, side * (1.8 + r() * 1.4), { solid: SOLID.stilt });
+      if (i % 14 === 3) put(i, POLE, 700, 1.15, { solid: SOLID.pole });
+      if (r() < .006) put(i, SPIRIT, 260, side * 1.4, { solid: SOLID.spirit });
     }
     if (i % 500 === 250) { const km = Math.max(1, Math.round((1 - i / L) * 80)); put(i, roadSign(dest, km), 900, 1.3); }
   }
   // temples, rare sights, dogs
   events = [];
   const at = (a, b) => Math.floor(L * (a + r() * (b - a)));
-  for (const k of [at(.25, .35), at(.6, .72)]) { put(k, TEMPLE, 3200, (r() < .5 ? -1 : 1) * 2.3); events.push({ seg: k, type: 'temple' }); }
+  for (const k of [at(.25, .35), at(.6, .72)]) { put(k, TEMPLE, 3200, (r() < .5 ? -1 : 1) * 2.3, { solid: SOLID.temple }); events.push({ seg: k, type: 'temple' }); }
   if (r() < .75) { const k = at(.4, .7); put(k, ELEPHANT, 1100, -2.5); events.push({ seg: k, type: 'elephant' }); }
   for (const k of [at(.12, .2), at(.78, .85)]) { put(k, MONKS, 520, 1.25); events.push({ seg: k, type: 'monks' }); }
   for (let d = 0; d < 9; d++) { const k = at(.05, .95); put(k, DOG, 330, (r() - .5) * 1.3, { center: true, dog: true }); }
@@ -933,7 +943,7 @@ function startTrip() {
   const toA = tripNo % 2 === 0, dest = toA ? 'AYUTTHAYA' : 'BANGKOK';
   buildTrack(4242 + tripNo * 97, dest);
   D = { dest, pos: 0, speed: 0, x: 0, time: 0, score: 100, steer: 0, steerT: 0, hold: 0, wv: 0, calm: .75, target: 3800, q: [], lastCmd: -9, nag: 0,
-        talkT: 8, crash: 0, arm: null, armT: 0, brake: 0, offT: 0, offs: 0, hits: 0, wasOff: false, offLine: -9, lastPraise: -9, prevSeg: 0, done: false };
+        talkT: 8, crash: 0, crashX: 0, vx: 0, shake: 0, arm: null, armT: 0, brake: 0, offT: 0, offs: 0, hits: 0, wasOff: false, offLine: -9, lastPraise: -9, prevSeg: 0, done: false };
   for (const e of events) e.done = false;
   scene = 'drive'; hideAll(); focusOn(W / 2); camX = W / 2;
   say('arve', tripNo === 0 ? 'Rolig ut fra fortauskanten…' : 'Samme vei tilbake. Du klarer det.', 2.5, .4);
@@ -961,6 +971,37 @@ function cmd(k) {
 }
 function hitStuff(scoreLoss, calmLoss) { D.score -= scoreLoss; D.calm -= calmLoss; D.hits++; }
 
+const PW = .2; // half the tuk-tuk's width in road units
+const SCRAPE = ['Speilet! Der røk speilet.', 'Ikke kyss husveggen, Somchai.', 'Den lakken var ny.', 'Vi er for nær!'];
+const WHAM = ['STOPP!', 'Det var en stolpe, Somchai.', 'Vi betaler for den.', 'Hvem satte den der?!'];
+function collide(pz0, px0) { // buildings, poles and stalls by the road are solid
+  const pz = D.pos + PZ, cur = Math.floor(pz / SEG);
+  for (let i = Math.max(0, cur - 6); i <= cur + 6 && i < N; i++) for (const sp of segs[i].sprites) {
+    if (!sp.solid || sp.gone) continue;
+    const half = sp.solid.d * SEG / 2, z0 = i * SEG - half, z1 = i * SEG + half;
+    if (pz < z0 || pz > z1) continue;
+    const [lo, hi] = hitbox(sp);
+    if (D.x + PW <= lo || D.x - PW >= hi) continue;
+    const toLo = lo + hi > 0, edge = toLo ? lo - PW - .01 : hi + PW + .01; // always shove toward the road
+    if (pz0 < z0 && px0 > lo && px0 < hi) { // head-on: we drove straight into its front
+      const hard = D.speed > 1800;
+      D.pos = z0 - PZ - 1; D.crash = hard ? 2.2 : 1; D.crashX = edge; D.shake = hard ? .5 : .25;
+      thud(clamp(D.speed / MAXSP * 1.5, .2, 1)); D.speed = 0; hitStuff(hard ? 6 : 2, hard ? .25 : .1);
+      say('arve', pick(hard ? WHAM : ['Rolig… rolig.', 'Ikke dytt den, Somchai.']), 2);
+      if (hard) say('somchai', 'Sorry krap!', 1.6, .8);
+      return;
+    }
+    // side hit: shove back toward the road, bounce and lose speed
+    D.x = edge; D.vx = (toLo ? -1 : 1) * Math.max(.35, Math.abs(D.vx) * .5);
+    const v = Math.min(1, D.speed / MAXSP * 1.5);
+    if (D.time - (D.lastScrape || -9) > .6) {
+      D.speed *= .6; D.shake = .2 + v * .2; hitStuff(2, .12); thud(v * .6);
+      if (D.time - D.offLine > 3) { say('arve', pick(SCRAPE), 1.8); D.offLine = D.time; }
+    }
+    D.lastScrape = D.time;
+  }
+}
+
 function updateDrive(dt) {
   if (D.done) return;
   const sp = D.speed / MAXSP, pSeg = segAt(D.pos + PZ);
@@ -974,32 +1015,36 @@ function updateDrive(dt) {
   D.q = D.q.filter(a => !a.done);
   D.hold -= dt; if (D.hold <= 0) D.steerT = 0;
   D.steer += (D.steerT - D.steer) * Math.min(1, dt * 7);
-  const dxs = dt * 2 * sp, amp = .08 + (1 - D.calm) * .35;
+  const amp = .08 + (1 - D.calm) * .35;
   D.wv += (Math.random() - .5) * amp * dt * 14; D.wv *= Math.pow(.3, dt); D.wv = clamp(D.wv, -amp, amp);
-  if (D.crash <= 0) {
-    D.x += D.steer * dxs * 1.1 + D.wv * dxs;
-    D.x -= dxs * sp * pSeg.curve * .32 * (1 - .45 * D.calm);
-  }
-  const off = Math.abs(D.x) > 1;
+  const off = Math.abs(D.x) > 1, px0 = D.x;
+  // lateral physics: steering sets the wanted sideways speed, grip decides how fast we get there (less grip off the asphalt)
+  const want = D.crash > 0 ? 0 : 2 * sp * (D.steer * 1.1 + D.wv - sp * pSeg.curve * .32 * (1 - .45 * D.calm));
+  D.vx += (want - D.vx) * Math.min(1, dt * (off ? 2.5 : 7));
+  D.x += D.vx * dt;
+  D.shake = Math.max(0, D.shake - dt);
   const tgt = D.crash > 0 ? 0 : D.target * (.75 + .25 * D.calm);
   const acc = D.brake > 0 ? 4000 : tgt > D.speed ? 1500 : 2500;
   D.speed += clamp(tgt - D.speed, -acc * dt, acc * dt);
   D.brake -= dt;
   if (off && D.crash <= 0) {
     if (D.speed > 2200) D.speed -= 5000 * dt;
+    D.speed -= D.speed * .25 * dt; // rolling resistance on gravel and sidewalk
     D.score -= dt * 2.5; D.calm -= dt * .06; D.offT += dt;
     if (!D.wasOff) { D.offs++; if (D.time - D.offLine > 4) { say('arve', pick(OFFROAD), 1.8); D.offLine = D.time; } }
   } else D.calm += dt * .012;
   D.wasOff = off;
   D.x = clamp(D.x, -2.4, 2.4);
   if (Math.abs(D.x) > 2.15 && D.crash <= 0) {
-    D.crash = 2.2; D.speed = 0; hitStuff(6, .25);
-    say('arve', pick(['Stopp, stopp, STOPP!', 'Det var en suppebod, Somchai.', 'Vi betaler for den.']), 2);
+    D.crash = 2.2; D.speed = 0; D.shake = .5; D.crashX = Math.sign(D.x) * .8; hitStuff(6, .25); thud(1);
+    say('arve', pick(['Stopp, stopp, STOPP!', 'Det der var grøfta, Somchai.', 'Vi står fast.']), 2);
     say('somchai', 'Sorry krap!', 1.6, .8);
   }
-  if (D.crash > 0) { D.crash -= dt; if (D.crash <= 0) { D.x = Math.sign(D.x) * .8; D.steer = D.steerT = D.wv = 0; } }
+  if (D.crash > 0) { D.crash -= dt; if (D.crash <= 0) { D.x = D.crashX; D.vx = D.steer = D.steerT = D.wv = 0; } }
   D.calm = clamp(D.calm, .05, 1);
+  const pz0 = D.pos + PZ;
   D.pos += D.speed * dt;
+  if (D.crash <= 0) collide(pz0, px0);
   skyOff += pSeg.curve * sp * dt * .02;
 
   // traffic
@@ -1064,8 +1109,9 @@ function finishTrip() {
 }
 
 function renderDrive() {
-  const g = ctx, sp = D.speed / MAXSP;
-  const ox = (((skyOff * 640) % 640) + 640) % 640, sky = IMG['skyline.jpg'];
+  const g = ctx, sp = D.speed / MAXSP, sk = D.shake * 14;
+  g.save(); if (sk > 0) g.translate(Math.round((Math.random() - .5) * sk), Math.round((Math.random() - .5) * sk));
+  const ox =(((skyOff * 640) % 640) + 640) % 640, sky = IMG['skyline.jpg'];
   if (sky) { // drawn skyline fills the whole sky; bottom edge sits on the horizon
     const sh = 640 * sky.height / sky.width;
     g.imageSmoothingEnabled = true; g.drawImage(sky, -ox, 100 - sh, 640, sh); g.drawImage(sky, 640 - ox, 100 - sh, 640, sh); g.imageSmoothingEnabled = false;
@@ -1123,6 +1169,7 @@ function renderDrive() {
     if (D.arm === 'P') { rc(g, px + 40, py + 8, 3, 20, sh); rc(g, px + 39, py + 4, 5, 5, sk); rc(g, px + 41, py + 1, 2, 3, sk); }
     if (D.arm === 'H') { rc(g, px + 40, py + 14, 3, 14, sh); rc(g, px + 39, py + 10, 5, 4, sk); }
   }
+  g.restore();
   if (D.crash > 0) { g.fillStyle = `rgba(255,255,255,${clamp(D.crash - 1.8, 0, .4)})`; g.fillRect(0, 0, W, H); }
   // HUD, kept inside the part of the scene the camera shows
   const hl = Math.round(camX - camVis / 2), hw = Math.round(camVis), hr = hl + hw;
@@ -1167,6 +1214,14 @@ function engineUpdate() {
   eng.lfo.frequency.setTargetAtTime(9 + sp * 22, t, .1);
   eng.g.gain.setTargetAtTime(on ? .045 + sp * .03 : 0, t, .2);
 }
+function thud(v) { // crunch on impact, v = 0..1
+  if (!AC || muted) return;
+  const t = AC.currentTime, n = Math.floor(AC.sampleRate * .3), buf = AC.createBuffer(1, n, AC.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = buf; f.type = 'lowpass'; f.frequency.value = 300 + v * 900; g.gain.value = .08 + v * .2;
+  s.connect(f); f.connect(g); g.connect(AC.destination); s.start(t);
+}
 function horn() {
   if (!AC || muted) return;
   const t = AC.currentTime, g = AC.createGain(); g.gain.value = .05; g.connect(AC.destination);
@@ -1184,12 +1239,56 @@ document.getElementById('talkBtn').addEventListener('keydown', e => { if (e.key 
 document.getElementById('talkBtn').addEventListener('click', e => { if (e.detail === 0) advance(); }); // keyboard activation
 document.getElementById('skipBtn').addEventListener('click', e => { e.currentTarget.blur(); if (scene === 'living' || scene === 'card' || scene === 'street') showHowto(); });
 document.getElementById('muteBtn').addEventListener('click', e => { e.currentTarget.blur(); resumeAudio(); setMute(!muted); });
-document.querySelectorAll('#padDrive .pb').forEach(b => b.addEventListener('pointerdown', e => {
-  e.preventDefault(); resumeAudio();
-  b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 120);
+function press(k) { // flash the pad button, buzz and give the command
+  const b = document.querySelector(`#padDrive .pb[data-k="${k}"]`);
+  if (b) { b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 120); }
   if (navigator.vibrate) { try { navigator.vibrate(12); } catch (_) { } }
-  cmd(b.dataset.k);
+  cmd(k);
+}
+document.querySelectorAll('#padDrive .pb').forEach(b => b.addEventListener('pointerdown', e => {
+  e.preventDefault(); resumeAudio(); press(b.dataset.k);
 }));
+
+// tilt steering: tip the phone sideways for left/right, forward/back for gas/calm. One command per tilt;
+// come back toward neutral to re-arm, or keep holding the tilt and Arve repeats himself now and then.
+const TILT = { on: false, got: false, zero: null, armed: {}, held: {}, last: { g: 0, b: 0 } };
+const tiltBtn = document.getElementById('tiltBtn');
+function setTiltLabel(s) { tiltBtn.textContent = 'Vipp: ' + s; }
+function onTilt(e) {
+  if (e.gamma == null || e.beta == null) return;
+  TILT.got = true; TILT.last = { g: e.gamma, b: e.beta };
+  if (!TILT.zero) TILT.zero = { g: e.gamma, b: e.beta };
+  if (scene !== 'drive') { TILT.zero = { g: e.gamma, b: e.beta }; return; } // recalibrate until the drive starts
+  const dg = e.gamma - TILT.zero.g, db = e.beta - TILT.zero.b;
+  const axes = [['L', -dg, 14, 6], ['R', dg, 14, 6], ['G', -db, 18, 8], ['B', db, 18, 8]]; // key, amount, fire at, re-arm below
+  for (const [k, v, fire, rearm] of axes) {
+    if (v < rearm) { TILT.armed[k] = true; TILT.held[k] = 0; continue; }
+    if (v >= fire && TILT.armed[k] !== false) { TILT.armed[k] = false; TILT.held[k] = performance.now(); press(k); }
+    else if (v >= fire && TILT.held[k] && performance.now() - TILT.held[k] > 1400) { TILT.held[k] = performance.now(); press(k); }
+  }
+}
+function tiltOn() {
+  TILT.on = true; TILT.got = false; TILT.zero = null; TILT.armed = {}; setTiltLabel('på');
+  addEventListener('deviceorientation', onTilt);
+  setTimeout(() => { if (TILT.on && !TILT.got) { tiltOff(); setTiltLabel('virker ikke her'); } }, 1500);
+  try { localStorage.setItem('tuktuk.tilt', '1'); } catch (_) { }
+}
+function tiltOff() {
+  TILT.on = false; removeEventListener('deviceorientation', onTilt); setTiltLabel('av');
+  try { localStorage.setItem('tuktuk.tilt', '0'); } catch (_) { }
+}
+if (typeof DeviceOrientationEvent !== 'undefined' && matchMedia('(pointer: coarse)').matches) {
+  tiltBtn.hidden = false;
+  tiltBtn.addEventListener('click', e => {
+    e.currentTarget.blur(); resumeAudio();
+    if (TILT.on) { tiltOff(); return; }
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') { // iOS asks first, and only from a tap
+      DeviceOrientationEvent.requestPermission().then(r => r === 'granted' ? tiltOn() : setTiltLabel('ikke tillatt')).catch(() => setTiltLabel('virker ikke her'));
+    } else tiltOn();
+  });
+  let saved = null; try { saved = localStorage.getItem('tuktuk.tilt'); } catch (_) { }
+  if (saved === '1' && typeof DeviceOrientationEvent.requestPermission !== 'function') tiltOn();
+}
 document.addEventListener('contextmenu', e => { if (e.target.closest('#app')) e.preventDefault(); });
 let padScene = null, titleOk = false;
 const titleImg = document.getElementById('titleImg');
